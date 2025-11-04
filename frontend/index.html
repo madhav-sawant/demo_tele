@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Telemetry Control Station</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="dark-theme">
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>Drone Telemetry Control Station</h1>
+                <div class="connection-status" id="connectionStatus">
+                    <div class="status-indicator disconnected"></div>
+                    <span>Disconnected</span>
+                </div>
+            </div>
+            <div class="header-center">
+                <button class="btn btn-secondary" id="connectESP32">
+                    <i class="fas fa-usb"></i> Connect ESP32
+                </button>
+                <button class="btn btn-primary" id="startMission" disabled>
+                    <i class="fas fa-play"></i> Start Mission
+                </button>
+                <button class="btn btn-warning" id="returnHome" disabled>
+                    <i class="fas fa-home"></i> Return To Home
+                </button>
+                <button class="btn btn-danger" id="emergencyStop" disabled>
+                    <i class="fas fa-exclamation-triangle"></i> Emergency Stop
+                </button>
+                <button class="btn btn-info" id="calculateFlightTime">
+                    <i class="fas fa-clock"></i> Calculate Flight Time
+                </button>
+            </div>
+            <div class="header-right">
+                <div class="system-time" id="systemTime"></div>
+            </div>
+        </header>
+
+        <main>
+            <div class="map-container">
+                <div id="map"></div>
+                <div class="map-controls">
+                    <button id="centerMap" class="btn">
+                        <i class="fas fa-crosshairs"></i> Center
+                    </button>
+                </div>
+                <div class="map-info-overlay">
+                    <div class="map-scale-bar">
+                        <div class="scale-bar-line"></div>
+                        <div class="scale-bar-text" id="scaleBarText">0 m</div>
+                    </div>
+                    <div class="map-camera-info">
+                        <span id="cameraDistance">Camera: 0 m</span>
+                    </div>
+                    <div class="map-coordinates">
+                        <span id="mapCoordinates">0°0'0"N 0°0'0"E</span>
+                    </div>
+                    <div class="map-altitude-info">
+                        <span id="mapAltitude">0 m</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="system-log-panel">
+                    <h3>System Log</h3>
+                    <div class="log-controls">
+                        <button id="clearLog" class="btn btn-sm"><i class="fas fa-trash-alt"></i> Clear</button>
+                        <select id="logFilter" class="log-filter">
+                            <option value="all">All Logs</option>
+                            <option value="info">Info Only</option>
+                            <option value="warning">Warnings</option>
+                            <option value="error">Errors</option>
+                        </select>
+                    </div>
+                    <div id="system-log" class="system-log-content">
+                        <div class="log-entry log-info">
+                            <span class="log-time">System</span>
+                            <span class="log-message">System initialized. Ready to connect.</span>
+                        </div>
+                        <div class="log-entry log-info">
+                            <span class="log-time">10:55:17</span>
+                            <span class="log-message">Map initialized. Ready to add waypoints.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="uav-telemetry-container">
+                    <h3>UAV Data</h3>
+                    <div class="status-display">
+                        <div class="status-item">
+                            <span>Battery</span>
+                            <div class="battery">
+                                <div class="battery-level" style="width: 85%;"></div>
+                                <span>85%</span>
+                            </div>
+                        </div>
+                        <div class="status-item">
+                            <span>Altitude</span>
+                            <div class="value">120.5 <small>m</small></div>
+                        </div>
+                        <div class="status-item">
+                            <span>Speed</span>
+                            <div class="value">44.3 <small>km/h</small></div>
+                        </div>
+                        <div class="status-item">
+                            <span>ETA</span>
+                            <div class="value eta-value">05:23</div>
+                        </div>
+                    </div>
+                    
+                    <h3 class="telemetry-title">Telemetry Data</h3>
+                    <div class="telemetry-grid">
+                        <div class="telemetry-item">
+                            <span>Latitude</span>
+                            <span>40.7128° N</span>
+                        </div>
+                        <div class="telemetry-item">
+                            <span>Longitude</span>
+                            <span>74.0060° W</span>
+                        </div>
+                        <div class="telemetry-item">
+                            <span>Heading</span>
+                            <span>135°</span>
+                        </div>
+                        <div class="telemetry-item">
+                            <span>Altitude AGL</span>
+                            <span>45m</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="waypoints-panel">
+                <div class="waypoint-section">
+                    <h3>Waypoint List</h3>
+                    <div class="waypoint-content-grid">
+                        <div class="waypoints-list-container">
+                            <div class="waypoint-instructions">Click on the map to add a waypoint</div>
+                            <div class="waypoints-list">
+                                <!-- Waypoints will be populated dynamically by JavaScript -->
+                            </div>
+                        </div>
+                        <div class="waypoint-actions">
+                            <button class="btn btn-add-waypoint">
+                                <i class="fas fa-plus"></i> Add Waypoint
+                            </button>
+                            <button class="btn btn-clear-waypoints">
+                                <i class="fas fa-trash"></i> Clear All
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mission-settings-section">
+                    <div class="mission-settings">
+                        <h3>Mission Settings</h3>
+                        
+                        <div class="mission-settings-grid">
+                            <div class="setting-item">
+                                <label>Mission End Action:</label>
+                                <div class="radio-group">
+                                    <label class="radio-label">
+                                        <input type="radio" name="missionEnd" value="returnHome" checked>
+                                        Return to Home
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="missionEnd" value="landAtLast">
+                                        Land at Last Waypoint
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-column">
+                                <div class="setting-item">
+                                    <label for="maxSpeed">Max Speed (km/h):</label>
+                                    <div class="slider-container">
+                                        <input type="range" id="maxSpeed" min="5" max="20" value="12" step="0.1">
+                                        <span class="slider-value" id="maxSpeedValue">12.0</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="setting-item">
+                                    <label for="maxAltitude">Max Altitude (m):</label>
+                                    <div class="slider-container">
+                                        <input type="range" id="maxAltitude" min="1" max="5" value="3" step="0.1">
+                                        <span class="slider-value" id="maxAltitudeValue">3.0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Flight Time Analysis Modal -->
+    <div id="flightTimeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Flight Time Analysis</h2>
+                <span class="close-btn">&times;</span>
+            </div>
+            <div class="modal-body" id="flightTimeAnalysisContent">
+                <!-- This will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>

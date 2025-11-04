@@ -1,0 +1,13 @@
+{
+    "latitude": 16.9939945,
+    "longitude": 73.2844695,
+    "satellites": 10,
+    "altitude": -6.6,
+    "speed": 0.14816,
+    "hdop": 1.51,
+    "direction": 321,
+    "cardinal": "NW",
+    "gps_datetime": "2025-11-03 10:42:41",
+    "datetime": "2025-11-03 06:12:41",
+    "timestamp": 1762146761
+}

@@ -47,7 +47,7 @@ It represents the interface of a **Ground Telemetry Station** — where real-tim
 
 ## 👨‍💻 Developer
 
-**Developed by [Maddy Sawant](https://github.com/madhav-sawant)**  
+**Developed by [Madhav Sawant](https://github.com/madhav-sawant)**  
 *Electronics & Telecommunication Engineering Student*  
 *Drone System Designer ✈️*
 

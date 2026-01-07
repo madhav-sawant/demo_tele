@@ -1,0 +1,187 @@
+================================================================================
+              GROUND CONTROL STATION (GCS) - IEEE PAPER SECTION
+================================================================================
+
+(Insert this section into your existing research paper)
+
+--------------------------------------------------------------------------------
+                     GROUND CONTROL STATION ARCHITECTURE
+--------------------------------------------------------------------------------
+
+A. System Overview
+
+The Ground Control Station (GCS) is responsible for receiving and displaying 
+real-time telemetry data transmitted from the UAV. The GCS architecture is 
+divided into two subsystems: Ground Hardware Acquisition and Ground Control 
+Software (Visualization).
+
+The Ground Hardware Acquisition subsystem captures the 2.4GHz wireless telemetry 
+signal from the air unit using an nRF24L01+ receiver module. This RF module 
+communicates with an ESP8266 microcontroller via the SPI protocol. The ESP8266 
+acts as a bridge between the RF link and the computer, converting received data 
+packets into JSON format and transmitting them over USB serial at 115200 baud. 
+The entire ground hardware unit is powered through USB, with the ESP8266 
+supplying 5V to the nRF module through its VIN pin.
+
+The Ground Control Software runs in a web browser and connects directly to the 
+ESP8266 using the Web Serial API. This eliminates the need for any backend 
+server, making the system completely standalone. The software displays live 
+GPS coordinates, altitude, speed, and other flight parameters on an interactive 
+map interface.
+
+
+B. Selection of ESP8266 for Ground Receiver
+
+Choosing the right microcontroller for the ground receiver was an important 
+design decision. The ground receiver needs to receive RF data and send it to 
+the computer. We evaluated several options before selecting the ESP8266.
+
+We first considered the Arduino Uno and Nano, which use the ATmega328P chip. 
+These boards are very popular and easy to program. However, they have only 2KB 
+of RAM, which is not enough for our application. When receiving RF packets and 
+converting them to JSON format, the memory usage can exceed 1.5KB. This leaves 
+almost no room for the program to run properly, causing instability and crashes. 
+Additionally, Arduino Uno and Nano do not have any wireless connectivity 
+built-in, so they can only work with external RF modules. Therefore, these 
+boards were not suitable for this project.
+
+Next, we looked at STM32-based boards like the Blue Pill and Black Pill. These 
+use the STM32F103 chip with a 72MHz ARM processor and 20KB RAM, which is more 
+than enough for our needs. However, programming these boards requires additional 
+hardware like an ST-LINK programmer. The Arduino library support for STM32 is 
+also not as mature as other platforms, and there are fewer examples available 
+for interfacing with the nRF24L01+ module. Like Arduino, STM32 boards also lack 
+built-in wireless connectivity. For a final year project with limited time, 
+this added complexity was not practical.
+
+The main reason we selected the ESP8266 is its built-in WiFi capability. While 
+our current implementation uses the nRF24L01+ module for the RF link between 
+the UAV and ground station, the ESP8266's WiFi feature provides an important 
+advantage for future development. If we want to eliminate the nRF module in 
+future versions, we can configure the system to use WiFi communication instead. 
+The ESP32 on the UAV (which is the primary flight controller) also has WiFi 
+capability, so both ends can communicate directly over WiFi without needing 
+any external RF modules.
+
+In the current version, we are using nRF24L01+ for the wireless link because:
+- It provides a dedicated point-to-point RF connection
+- It has lower latency compared to WiFi
+- It works in areas where there is no WiFi network available
+- It is simple to implement and well-documented
+
+However, having WiFi on the ground receiver means we have flexibility for the 
+future. We can switch to WiFi-based telemetry when operating in areas with 
+existing WiFi infrastructure or when integration with other network-connected 
+devices is required.
+
+Apart from WiFi, the ESP8266 also meets our basic requirements. It runs at 
+80MHz and has 80KB of usable RAM, which is sufficient for JSON processing. It 
+comes with an onboard USB-UART chip (CH340 or CP2102), so it can connect 
+directly to the computer without any extra components. The Arduino core for 
+ESP8266 is well-developed, and libraries like ArduinoJson work reliably on 
+this platform.
+
+It is important to clarify that the ESP32 is used as the main MCU on the UAV 
+itself, where it handles GPS parsing, sensor reading, and telemetry 
+transmission. The ESP32 was chosen for the air segment because of its 
+superior processing power (240MHz dual-core), larger RAM (520KB), and multiple 
+hardware peripherals needed for flight controller functions. The ESP8266 on 
+the ground side handles the simpler task of receiving data and forwarding 
+it to the computer.
+
+
+C. Ground Control Software Design
+
+The Ground Control Software is built as a web application that runs entirely 
+in the browser. We chose this approach for several practical reasons.
+
+First, a browser-based application works on any operating system - Windows, 
+Mac, or Linux - without any changes to the code. This was helpful during 
+development as team members used different laptops.
+
+Second, there is no installation required. The user simply opens the HTML file 
+in Chrome or Edge browser, and the application is ready to use. This is much 
+simpler than creating an executable file that needs to be installed.
+
+Third, modern browsers now support the Web Serial API, which allows JavaScript 
+code to communicate directly with USB serial ports. This feature was introduced 
+in Chrome version 89 (released in 2021). Using this API, our web application 
+can read data from the ESP8266 without needing any server or additional software.
+
+The software interface has the following main components:
+
+1) Connection Panel: Shows whether the ESP8266 is connected or not, with a 
+   button to establish the connection. Once connected, the status indicator 
+   turns green.
+
+2) Map Display: Uses the Leaflet.js library to show an interactive map with 
+   satellite imagery. The current position of the UAV is shown as a marker 
+   that updates in real-time as new GPS data is received.
+
+3) Telemetry Dashboard: Displays the current values of latitude, longitude, 
+   altitude, ground speed, heading direction, and number of GPS satellites. 
+   These values update every 2 seconds when new data arrives.
+
+4) System Log: Shows timestamped messages about connection status, data 
+   reception, and any errors that occur. This helps in debugging when 
+   something goes wrong.
+
+The application is designed to work completely offline. Once the HTML file 
+is loaded, no internet connection is needed for the core functionality 
+(though the map tiles require internet to load the satellite imagery).
+
+
+D. Data Communication
+
+The communication between the ESP8266 and the browser uses a simple JSON-based 
+protocol over USB serial. JSON (JavaScript Object Notation) was chosen because 
+it is easy to read during debugging, and JavaScript has built-in functions to 
+parse JSON data.
+
+When the ESP8266 receives a data packet from the nRF24L01+ module, it formats 
+the information as a JSON object and sends it over the serial port. Each JSON 
+message is sent on a new line, making it easy to separate individual messages.
+
+A typical telemetry message contains the following fields:
+- Type of message (telemetry)
+- Latitude and longitude coordinates
+- Altitude in meters
+- Number of satellites being tracked
+- Ground speed in km/h
+- Heading direction in degrees
+- Timestamp
+
+The browser application reads the serial port continuously, parses each JSON 
+message, and updates the display accordingly. If the JSON parsing fails (for 
+example, if the data is corrupted), the error is logged but the application 
+continues running.
+
+The telemetry update rate is set to once every 2 seconds. This interval was 
+chosen to balance between having reasonably current data and not overwhelming 
+the serial communication. For a GPS-based tracking system, 2-second updates 
+provide sufficient resolution to follow the UAV's movement on the map.
+
+
+E. Initial Testing
+
+Basic range testing was conducted with the RF communication link. The testing 
+was performed in clear line-of-sight conditions, and the system demonstrated 
+reliable data transmission. The telemetry data was received consistently at 
+the ground station, and the map display updated correctly with the incoming 
+GPS coordinates. Further extensive testing under various environmental 
+conditions is planned as part of future work.
+
+
+--------------------------------------------------------------------------------
+                              END OF GCS SECTION
+--------------------------------------------------------------------------------
+
+Word Count: Approximately 1,150 words
+No code included
+No autonomous/mission planning features
+No specific performance numbers
+No cost analysis
+Simple testing mentioned without specific distances
+Written in 4th year EXTC engineering student style
+
+================================================================================

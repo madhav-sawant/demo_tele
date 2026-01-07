@@ -105,11 +105,11 @@ function initializeMapInfoOverlay() {
     });
 }
 
+
 function updateMapInfoOverlay() {
     updateScaleBar();
     updateCameraDistance();
     updateMapCoordinates();
-    updateMapAltitude();
 }
 
 function updateScaleBar() {
@@ -174,24 +174,6 @@ function updateMapCoordinates() {
     const lngDMS = toDMS(lng, false);
     
     mapCoordinates.textContent = `${latDMS} ${lngDMS}`;
-}
-
-function updateMapAltitude() {
-    const mapAltitude = document.getElementById('mapAltitude');
-    if (!mapAltitude) return;
-    
-    const zoom = window.map.getZoom();
-    const center = window.map.getCenter();
-    const altitude = Math.round(40075016.686 * Math.abs(Math.cos(center.lat * Math.PI / 180)) / Math.pow(2, zoom + 8) * 500);
-    
-    let displayAltitude;
-    if (altitude < 1000) {
-        displayAltitude = altitude + ' m';
-    } else {
-        displayAltitude = (altitude / 1000).toFixed(1) + ' km';
-    }
-    
-    mapAltitude.textContent = displayAltitude;
 }
 
 // ================== DRONE MARKER ==================

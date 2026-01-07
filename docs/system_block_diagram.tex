@@ -1,0 +1,151 @@
+% ====================================================================
+% SYSTEM BLOCK DIAGRAM - RESEARCH GRADE (BLACK & WHITE + RED POWER)
+% ====================================================================
+
+\documentclass[border=15pt]{standalone}
+\usepackage{tikz}
+\usepackage{times} % Use standard Times font for research papers
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc, shadows}
+
+% ==================== STYLES ====================
+
+% Standard Functional Block (Hardware & Software)
+\tikzstyle{block} = [
+    rectangle,
+    draw=black,
+    line width=0.8pt,
+    minimum width=2.8cm,
+    minimum height=1.2cm,
+    text centered,
+    align=center, % Ensures multiline text breaks correctly
+    font=\small\bfseries,
+    fill=white,
+    rounded corners=2pt,
+    drop shadow={opacity=0.3, shadow xshift=2pt, shadow yshift=-2pt}
+]
+
+% Container Boxes (Subsystems)
+\tikzstyle{container} = [
+    rectangle,
+    draw=black,
+    dashed,
+    line width=0.8pt,
+    inner sep=15pt,
+    rounded corners=5pt
+]
+
+% Lines
+\tikzstyle{rfLine} = [
+    {Stealth[length=3mm]}-{Stealth[length=3mm]},
+    draw=black,
+    dashed,
+    line width=1pt
+]
+
+\tikzstyle{dataLine} = [
+    -{Stealth[length=3mm]},
+    draw=black,
+    line width=1pt
+]
+
+\tikzstyle{powerLine} = [
+    -{Stealth[length=3mm]},
+    draw=red,       % ONLY Power lines are red
+    line width=1pt
+]
+
+% Labels
+\tikzstyle{linkLabel} = [
+    font=\scriptsize,
+    fill=white,
+    inner sep=2pt,
+    text=black
+]
+
+\begin{document}
+
+\begin{tikzpicture}[node distance=2.0cm]
+
+    % ==================== 1. AIR SEGMENT ====================
+    \node[block] (airUnit) {Air Unit\\(nRF Sender)};
+
+    % ==================== 2. GROUND HARDWARE SEGMENT ====================
+    
+    % nRF Receiver
+    \node[block, below=2.5cm of airUnit] (nrf) {nRF Receiver\\Module};
+    
+    % Power Source (Top Right)
+    \node[block, draw=red, text=red, dashed, right=1.8cm of nrf] (power) {USB Power Source\\(5V Input)};
+    
+    % ESP8266 Controller (Bottom Right)
+    \node[block, below=1.0cm of power] (esp32) {ESP8266\\Controller};
+
+    % Container for Ground HW
+    \node[container, fit=(nrf) (esp32) (power)] (hwBox) {};
+    % Label placed INSIDE (Bottom Left - Empty Space)
+    \node[font=\bfseries, anchor=south west, xshift=10pt, yshift=5pt] at (hwBox.south west) {Ground Hardware Acquisition};
+
+    % ==================== 3. GROUND SOFTWARE SEGMENT ====================
+    
+    % Web Serial API (Placed vertically below nRF)
+    \node[block, below=5.5cm of nrf] (webSerial) {Web Serial\\Interface};
+    
+    % Data Parsing
+    \node[block, right=1.8cm of webSerial] (parser) {JSON Data\\Parser};
+    
+    % Visualization Components
+    \node[block, right=1.8cm of parser, yshift=1.4cm] (map) {Leaflet Map\\Engine};
+    
+    \node[block, right=1.8cm of parser] (gauges) {Telemetry\\Dashboard};
+    
+    \node[block, right=1.8cm of parser, yshift=-1.4cm] (logs) {System\\Data Logs};
+    
+    % Container for Software
+    \node[container, fit=(webSerial) (parser) (map) (gauges) (logs)] (swBox) {};
+    % Label placed INSIDE (Bottom Left - Empty Space below WebSerial)
+    \node[font=\bfseries, anchor=south west, xshift=10pt, yshift=5pt] at (swBox.south west) {Ground Control Software (Visualization)};
+
+    % ==================== CONNECTIONS ====================
+
+    % Air -> Ground (RF)
+    \draw[rfLine] (airUnit) -- node[linkLabel] {2.4GHz Wireless Telemetry} (nrf);
+
+    % nRF -> ESP32 (SPI)
+    % Route: Down from nRF then Right to ESP32 (Clean L-shape)
+    \draw[dataLine] (nrf.south) |- node[linkLabel, near start] {SPI Bus} (esp32.west);
+
+    % ESP32 -> Web Serial (USB)
+    % Route: Down from ESP32, then Left across the gap, then Down to Web Serial
+    % This avoids cutting through the JSON Parser block.
+    \draw[dataLine] (esp32.south) -- ++(0,-0.8) -| node[linkLabel, near start, fill=white] {USB / UART Stream} (webSerial.north);
+
+    % Power Routing (Red)
+    % USB -> ESP8266 (Down - Input)
+    \draw[powerLine] (power) -- node[linkLabel, text=red] {5V} (esp32);
+    
+    % ESP8266 -> nRF (Up then Left - Output via VIN)
+    % Route: From Top-Left corner of ESP, go LEFT into the gap, then UP to nRF level, then LEFT to nRF.east
+    \draw[powerLine] (esp32.north west) -- ++(-0.6, 0) |- node[linkLabel, text=red, near end] {5V (VIN)} (nrf.east);
+
+    % Software Data Flow
+    \draw[dataLine] (webSerial) -- node[linkLabel] {Raw Bytes} (parser);
+    
+    % Parser distribution (Branching)
+    \draw[dataLine] (parser) -- (gauges);
+    \draw[dataLine] (parser.east) -- ++(0.5,0) |- (map.west);
+    \draw[dataLine] (parser.east) -- ++(0.5,0) |- (logs.west);
+
+    % ==================== LEGEND ====================
+    % Moved to bottom of Software Box
+    \node[draw=black, line width=0.5pt, anchor=north west, fill=white, inner sep=5pt] at ([yshift=-0.5cm]swBox.south west) (legend) {
+        \begin{tikzpicture}[baseline=(current bounding box.center)]
+            \node[font=\bfseries\scriptsize, anchor=west] at (0,0.2) {\underline{Legend:}};
+            \draw[dataLine] (0,-0.3) -- (1.0,-0.3) node[right, font=\tiny] {Signal Flow};
+            \draw[rfLine] (0,-0.7) -- (1.0,-0.7) node[right, font=\tiny] {Wireless RF};
+            \draw[powerLine] (0,-1.1) -- (1.0,-1.1) node[right, font=\tiny] {Power Line};
+        \end{tikzpicture}
+    };
+
+\end{tikzpicture}
+
+\end{document}

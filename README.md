@@ -272,9 +272,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Issues**: Report bugs and feature requests
 - **Discussions**: Ask questions and share ideas
 - **Wiki**: Community-maintained documentation
-
----
-
-**Built with ❤️ for the drone community**
-
-*Professional drone telemetry made simple and accessible - No servers required!*

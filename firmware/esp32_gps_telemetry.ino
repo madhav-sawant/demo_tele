@@ -1,3 +1,11 @@
+/*
+ * ═══════════════════════════════════════════════════════════════
+ *  ESP32 GPS Telemetry System
+ *  
+ *  This firmware provides GPS telemetry and mission navigation.
+ * ═══════════════════════════════════════════════════════════════
+ */
+
 #include <TinyGPSPlus.h>
 #include <HardwareSerial.h>
 #include <ArduinoJson.h>
@@ -44,6 +52,12 @@ void resetMission();
 void setup() {
   Serial.begin(115200);
   GPS.begin(115200, SERIAL_8N1, 16, 17);
+  
+  // System Startup
+  Serial.println("═══════════════════════════════════════════════");
+  Serial.println("  ESP32 GPS Telemetry System");
+  Serial.println("  Version: 1.0");
+  Serial.println("═══════════════════════════════════════════════");
   Serial.println("GPS Telemetry Ready");
   
   DynamicJsonDocument doc(256);

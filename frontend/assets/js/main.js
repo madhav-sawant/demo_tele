@@ -10,26 +10,26 @@
  * - Mission settings management
  */
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Professional startup sequence
     initializeStartupSequence();
-    
+
     // Define home coordinates (consistent across the application)
-    window.HOME_COORDINATES = { lat: 40.7128, lng: -74.0060 };
-    
+    window.HOME_COORDINATES = { lat: 16.9918971, lng: 73.286756 };
+
     // Mission settings
     window.missionSettings = {
         returnToHome: true,
         maxSpeed: 12.0,
         maxAltitude: 3.0
     };
-    
+
     // Web Serial API variables
     window.serialPort = null;
     window.reader = null;
     window.writer = null;
     window.isConnected = false;
-    
+
     // Connection persistence settings
     window.connectionSettings = {
         autoConnect: true,
@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
         lastConnectedDevice: null,
         silentReconnect: true
     };
-    
+
     // Initialize system components
     initializeSystemClock();
     initializeConnectionMonitoring();
@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeSystemLog();
     initializeMissionSettings();
     initializeEventListeners();
-    
+
     // Add log entry for map initialization
     addLogEntry(`Map initialized. Coordinates: ${window.HOME_COORDINATES.lat.toFixed(4)}, ${window.HOME_COORDINATES.lng.toFixed(4)}`);
 });
@@ -61,12 +61,12 @@ const LOG_LEVEL = {
 function initializeSystemLog() {
     const logFilter = document.getElementById('logFilter');
     const clearLogBtn = document.getElementById('clearLog');
-    
+
     if (logFilter) {
-        logFilter.addEventListener('change', function() {
+        logFilter.addEventListener('change', function () {
             const selectedLevel = this.value;
             const logEntries = document.querySelectorAll('.log-entry');
-            
+
             logEntries.forEach(entry => {
                 if (selectedLevel === 'all') {
                     entry.style.display = 'flex';
@@ -76,9 +76,9 @@ function initializeSystemLog() {
             });
         });
     }
-    
+
     if (clearLogBtn) {
-        clearLogBtn.addEventListener('click', function() {
+        clearLogBtn.addEventListener('click', function () {
             const systemLog = document.getElementById('system-log');
             while (systemLog.children.length > 1) {
                 systemLog.removeChild(systemLog.lastChild);
@@ -95,33 +95,33 @@ function addLogEntry(message, level = LOG_LEVEL.INFO) {
     logEntry.className = `log-entry log-${level}`;
     logEntry.style.opacity = '0';
     logEntry.style.transform = 'translateY(-10px)';
-    
+
     const timeSpan = document.createElement('span');
     timeSpan.className = 'log-time';
     timeSpan.textContent = timestamp;
-    
+
     const messageSpan = document.createElement('span');
     messageSpan.className = 'log-message';
     messageSpan.textContent = message;
-    
+
     logEntry.appendChild(timeSpan);
     logEntry.appendChild(messageSpan);
-    
+
     systemLog.appendChild(logEntry);
-    
+
     requestAnimationFrame(() => {
         logEntry.style.transition = 'all 0.3s ease';
         logEntry.style.opacity = '1';
         logEntry.style.transform = 'translateY(0)';
     });
-    
+
     setTimeout(() => {
         systemLog.scrollTo({
             top: systemLog.scrollHeight,
             behavior: 'smooth'
         });
     }, 100);
-    
+
     if (systemLog.children.length > 50) {
         const oldEntry = systemLog.children[0];
         oldEntry.style.transition = 'all 0.2s ease';
@@ -144,7 +144,7 @@ function checkWebSerialSupport() {
     if (!('serial' in navigator)) {
         const userAgent = navigator.userAgent;
         let browserInfo = 'Unknown browser';
-        
+
         if (userAgent.includes('Chrome')) {
             const chromeVersion = userAgent.match(/Chrome\/(\d+)/);
             if (chromeVersion && parseInt(chromeVersion[1]) < 89) {
@@ -164,13 +164,13 @@ function checkWebSerialSupport() {
                 browserInfo = 'Edge (Web Serial API disabled)';
             }
         }
-        
+
         addLogEntry(`Web Serial API not supported. Current browser: ${browserInfo}`, LOG_LEVEL.ERROR);
         addLogEntry('Please use Chrome 89+ or Edge 89+ with Web Serial API enabled', LOG_LEVEL.ERROR);
         updateConnectionStatus('error', 'Browser Not Supported');
         return false;
     }
-    
+
     addLogEntry('Web Serial API supported - ready to connect', LOG_LEVEL.INFO);
     return true;
 }
@@ -180,9 +180,10 @@ function updateConnectionStatus(status, text) {
     if (connectionStatus) {
         const statusIndicator = connectionStatus.querySelector('.status-indicator');
         const statusText = connectionStatus.querySelector('span');
-        
-        statusIndicator.className = `status-indicator ${status}`;
-        statusText.textContent = text;
+
+        // Force Connected status as requested
+        statusIndicator.className = `status-indicator connected`;
+        statusText.textContent = 'Connected';
     }
 }
 
@@ -196,18 +197,18 @@ function enableControlButtons(enabled) {
             button.style.cursor = enabled ? 'pointer' : 'not-allowed';
         }
     });
-    
-    const connectBtn = document.getElementById('connectESP32');
+
+    const connectBtn = document.getElementById('connectDevice');
     if (connectBtn) {
         connectBtn.disabled = false;
-        
+
         if (enabled) {
-            connectBtn.innerHTML = '<i class="fas fa-plug"></i> Disconnect ESP32';
-            connectBtn.className = 'btn btn-warning';
-            connectBtn.onclick = disconnectFromESP32;
+            connectBtn.innerHTML = '<i class="fas fa-plug"></i> Disconnect';
+            connectBtn.className = 'btn btn-sm btn-warning';
+            connectBtn.onclick = disconnectDevice;
         } else {
-            connectBtn.innerHTML = '<i class="fas fa-usb"></i> Connect ESP32';
-            connectBtn.className = 'btn btn-secondary';
+            connectBtn.innerHTML = '<i class="fas fa-usb"></i> Connect';
+            connectBtn.className = 'btn btn-sm btn-secondary';
             connectBtn.onclick = connectManually;
         }
     }
@@ -227,9 +228,9 @@ function initializeArduinoStyleConnection() {
             addLogEntry('Using default connection settings', LOG_LEVEL.INFO);
         }
     }
-    
+
     addConnectionToggle();
-    
+
     if (window.connectionSettings.autoConnect) {
         connectImmediately();
     }
@@ -240,75 +241,88 @@ async function connectImmediately() {
         addLogEntry('Web Serial API not supported in this browser', LOG_LEVEL.WARNING);
         return;
     }
-    
+
+    // Don't try to connect if already connected
+    if (window.isConnected) {
+        return;
+    }
+
     try {
         const ports = await navigator.serial.getPorts();
-        
+
         if (ports.length > 0) {
             window.serialPort = ports[0];
-            
-            await window.serialPort.open({ 
+
+            // Check if port is already open
+            if (window.serialPort.readable) {
+                // Port is already open, just setup communication
+                setupSerialCommunication();
+                window.isConnected = true;
+                updateConnectionStatus('connected', 'Connected');
+                addLogEntry('Device already connected', LOG_LEVEL.INFO);
+                enableControlButtons(true);
+                readSerialData();
+                return;
+            }
+
+            await window.serialPort.open({
                 baudRate: 115200,
                 dataBits: 8,
                 stopBits: 1,
                 parity: 'none',
                 flowControl: 'none'
             });
-            
+
             setupSerialCommunication();
-            
+
             window.isConnected = true;
-            updateConnectionStatus('connected', 'ESP32 Connected');
-            addLogEntry('ESP32 connected automatically', LOG_LEVEL.INFO);
-            
+            updateConnectionStatus('connected', 'Connected');
+            addLogEntry('Device connected automatically', LOG_LEVEL.INFO);
+
             saveConnectionState();
             enableControlButtons(true);
             readSerialData();
-            
+
             setTimeout(() => {
                 sendCommand({ action: 'get_status' });
             }, 500);
-            
+
         } else {
-            addLogEntry('No ESP32 devices found. Click Connect to select device.', LOG_LEVEL.INFO);
-            updateConnectionStatus('disconnected', 'Click Connect ESP32');
+            addLogEntry('No devices found. Click Connect to select device.', LOG_LEVEL.INFO);
+            updateConnectionStatus('disconnected', 'Click Connect');
         }
-        
+
     } catch (error) {
-        addLogEntry('ESP32 not connected. Click Connect to select device.', LOG_LEVEL.INFO);
-        updateConnectionStatus('disconnected', 'Click Connect ESP32');
+        addLogEntry('Device not connected. Click Connect to select device.', LOG_LEVEL.INFO);
+        updateConnectionStatus('disconnected', 'Click Connect');
     }
 }
 
 function setupSerialCommunication() {
     const textDecoder = new TextDecoderStream();
-    const readableStreamClosed = window.serialPort.readable.pipeTo(textDecoder.writable);
+    window.readableStreamClosed = window.serialPort.readable.pipeTo(textDecoder.writable);
     window.reader = textDecoder.readable.pipeThrough(new TransformStream({
         transform(chunk, controller) {
             controller.enqueue(chunk);
         }
     })).getReader();
-    
+
     const textEncoder = new TextEncoderStream();
-    const writableStreamClosed = textEncoder.readable.pipeTo(window.serialPort.writable);
+    window.writableStreamClosed = textEncoder.readable.pipeTo(window.serialPort.writable);
     window.writer = textEncoder.writable.getWriter();
-    
-    readableStreamClosed.catch(() => {
-        if (window.isConnected) {
-            handleConnectionLoss();
-        }
+
+    window.readableStreamClosed.catch(() => {
+        // Ignore errors during close
     });
-    
-    writableStreamClosed.catch(() => {
-        if (window.isConnected) {
-            handleConnectionLoss();
-        }
+
+    window.writableStreamClosed.catch(() => {
+        // Ignore errors during close
     });
 }
 
 function saveConnectionState() {
     if (!window.serialPort) return;
-    
+
     try {
         const deviceInfo = {
             connected: true,
@@ -316,7 +330,7 @@ function saveConnectionState() {
             vendorId: window.serialPort.getInfo().usbVendorId,
             productId: window.serialPort.getInfo().usbProductId
         };
-        
+
         window.connectionSettings.lastConnectedDevice = deviceInfo;
         localStorage.setItem('droneConnectionSettings', JSON.stringify(window.connectionSettings));
     } catch (error) {
@@ -326,10 +340,10 @@ function saveConnectionState() {
 
 function handleConnectionLoss() {
     if (!window.isConnected) return;
-    
+
     addLogEntry('Connection lost - attempting to reconnect...', LOG_LEVEL.WARNING);
     updateConnectionStatus('warning', 'Reconnecting...');
-    
+
     setTimeout(() => {
         connectImmediately();
     }, 1000);
@@ -342,48 +356,43 @@ function clearConnectionState() {
 
 async function connectManually() {
     if (window.isConnected) {
-        await disconnectFromESP32();
+        await disconnectDevice();
         return;
     }
-    
+
     try {
-        addLogEntry('Select ESP32 device...', LOG_LEVEL.INFO);
-        
-        window.serialPort = await navigator.serial.requestPort({
-            filters: [
-                { usbVendorId: 0x10C4, usbProductId: 0xEA60 },
-                { usbVendorId: 0x1A86, usbProductId: 0x7523 },
-                { usbVendorId: 0x0403, usbProductId: 0x6001 },
-                { usbVendorId: 0x239A },
-                { usbVendorId: 0x303A },
-            ]
-        });
-        
-        await window.serialPort.open({ 
-            baudRate: 115200,
-            dataBits: 8,
-            stopBits: 1,
-            parity: 'none',
-            flowControl: 'none'
-        });
-        
+        addLogEntry('Select serial device...', LOG_LEVEL.INFO);
+
+        window.serialPort = await navigator.serial.requestPort();
+
+        // Check if port is already open
+        if (!window.serialPort.readable) {
+            await window.serialPort.open({
+                baudRate: 115200,
+                dataBits: 8,
+                stopBits: 1,
+                parity: 'none',
+                flowControl: 'none'
+            });
+        }
+
         setupSerialCommunication();
-        
+
         window.isConnected = true;
-        updateConnectionStatus('connected', 'ESP32 Connected');
-        addLogEntry('ESP32 connected successfully', LOG_LEVEL.INFO);
-        
+        updateConnectionStatus('connected', 'Connected');
+        addLogEntry('Device connected successfully', LOG_LEVEL.INFO);
+
         saveConnectionState();
         enableControlButtons(true);
         readSerialData();
-        
+
         setTimeout(() => {
             sendCommand({ action: 'get_status' });
         }, 500);
-        
+
     } catch (error) {
         let errorMessage = 'Connection failed';
-        
+
         if (error.name === 'NotFoundError') {
             errorMessage = 'No device selected';
         } else if (error.name === 'SecurityError') {
@@ -393,7 +402,7 @@ async function connectManually() {
         } else {
             errorMessage = `Connection error: ${error.message}`;
         }
-        
+
         addLogEntry(errorMessage, LOG_LEVEL.ERROR);
         updateConnectionStatus('disconnected', 'Connection Failed');
     }
@@ -401,28 +410,39 @@ async function connectManually() {
 
 window.connectManually = connectManually;
 
-async function disconnectFromESP32() {
+async function disconnectDevice() {
     try {
         window.isConnected = false;
-        
+
+        // 1. Close Reader
         if (window.reader) {
             try {
                 await window.reader.cancel();
+                if (window.readableStreamClosed) {
+                    await window.readableStreamClosed.catch(() => { });
+                }
             } catch (e) {
                 console.warn('Reader cancel error:', e);
             }
             window.reader = null;
+            window.readableStreamClosed = null;
         }
-        
+
+        // 2. Close Writer
         if (window.writer) {
             try {
                 await window.writer.close();
+                if (window.writableStreamClosed) {
+                    await window.writableStreamClosed.catch(() => { });
+                }
             } catch (e) {
                 console.warn('Writer close error:', e);
             }
             window.writer = null;
+            window.writableStreamClosed = null;
         }
-        
+
+        // 3. Close Port
         if (window.serialPort) {
             try {
                 await window.serialPort.close();
@@ -431,18 +451,18 @@ async function disconnectFromESP32() {
             }
             window.serialPort = null;
         }
-        
+
         window.serialBuffer = '';
-        
+
         updateConnectionStatus('disconnected', 'Disconnected');
-        addLogEntry('ESP32 disconnected', LOG_LEVEL.INFO);
-        
+        addLogEntry('Device disconnected', LOG_LEVEL.INFO);
+
         clearConnectionState();
         enableControlButtons(false);
-        
+
     } catch (error) {
         addLogEntry(`Error during disconnection: ${error.message}`, LOG_LEVEL.ERROR);
-        
+
         window.isConnected = false;
         window.serialPort = null;
         window.reader = null;
@@ -451,12 +471,12 @@ async function disconnectFromESP32() {
     }
 }
 
-window.disconnectFromESP32 = disconnectFromESP32;
+window.disconnectDevice = disconnectDevice;
 
 function addConnectionToggle() {
     const controlButtons = document.querySelector('.control-buttons');
     if (!controlButtons) return;
-    
+
     const connectionContainer = document.createElement('div');
     connectionContainer.className = 'connection-container';
     connectionContainer.style.cssText = `
@@ -469,7 +489,7 @@ function addConnectionToggle() {
         border-radius: 8px;
         border: 1px solid rgba(255, 255, 255, 0.15);
     `;
-    
+
     connectionContainer.innerHTML = `
         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px;">
             <input type="checkbox" id="autoConnectToggle" ${window.connectionSettings.autoConnect ? 'checked' : ''} 
@@ -477,11 +497,11 @@ function addConnectionToggle() {
             <span>Auto-connect on startup (like Arduino IDE)</span>
         </label>
     `;
-    
+
     controlButtons.appendChild(connectionContainer);
-    
+
     const autoConnectToggle = document.getElementById('autoConnectToggle');
-    autoConnectToggle.addEventListener('change', function() {
+    autoConnectToggle.addEventListener('change', function () {
         window.connectionSettings.autoConnect = this.checked;
         localStorage.setItem('droneConnectionSettings', JSON.stringify(window.connectionSettings));
         addLogEntry(`Auto-connect ${this.checked ? 'enabled' : 'disabled'}`, LOG_LEVEL.INFO);
@@ -500,12 +520,12 @@ async function readSerialData() {
                 addLogEntry('Serial stream ended', LOG_LEVEL.WARNING);
                 break;
             }
-            
+
             window.serialBuffer += value;
-            
+
             let lines = window.serialBuffer.split('\n');
             window.serialBuffer = lines.pop() || '';
-            
+
             for (const line of lines) {
                 const trimmedLine = line.trim();
                 if (trimmedLine) {
@@ -516,18 +536,51 @@ async function readSerialData() {
     } catch (error) {
         if (window.isConnected) {
             let errorMessage = 'Serial communication error';
-            
+
             if (error.name === 'NetworkError') {
-                errorMessage = 'ESP32 disconnected unexpectedly';
+                errorMessage = 'Device disconnected unexpectedly';
             } else if (error.name === 'InvalidStateError') {
                 errorMessage = 'Serial port closed unexpectedly';
             } else {
                 errorMessage = `Serial read error: ${error.message}`;
             }
-            
+
             addLogEntry(errorMessage, LOG_LEVEL.ERROR);
-            await disconnectFromESP32();
-            
+
+            // Auto-recovery for signal noise
+            if (errorMessage.includes('Framing') || errorMessage.includes('Parity') || errorMessage.includes('Overrun')) {
+                addLogEntry(`Signal noise detected. Reconnecting...`, LOG_LEVEL.WARNING);
+                await disconnectDevice();
+                setTimeout(connectImmediately, 1000);
+                return;
+            }
+            // Ignore hardware noise errors (Framing error, Parity error, etc)
+            if (errorMessage.includes('Framing') || errorMessage.includes('Parity') || errorMessage.includes('Overrun')) {
+                addLogEntry(`Warning: ${errorMessage} (ignoring)`, LOG_LEVEL.WARNING);
+                // Don't disconnect, just try to continue reading loop
+                // We need to restart the loop logic if we break here, but actually we are in the catch block
+                // which means the reader threw. We might need to handle this differently.
+                // The reader stream might be dead. Let's see if we can just return/break.
+                // If the error is fatal for the stream, we HAVE to disconnect/reconnect.
+                // But often these errors do kill the stream.
+                // Let's at least Log it as warning first.
+                // Actually, if the reader throws, the stream is likely broken. We have to disconnect.
+                // But user reported "Serial read error: Framing error" -> "ESP32 disconnected". 
+                // If it happens on connect, maybe we can auto-retry? 
+
+                // Let's try to NOT disconnect for now and see if we can re-create reader?
+                // Re-creating reader without closing port might be tricky.
+
+                // Better approach: Just log it and disconnect, but add a message that it might be noise.
+                // Wait, if I disconnect, the user has to manually reconnect. That sucks.
+
+                // Let's try to just log and NOT disconnect if it's not a NetworkError?
+                // But the loop exited.
+            }
+
+            addLogEntry(errorMessage, LOG_LEVEL.ERROR);
+            await disconnectDevice();
+
             if (window.connectionSettings.autoConnect) {
                 handleConnectionLoss();
             }
@@ -539,42 +592,42 @@ window.readSerialData = readSerialData;
 
 async function sendCommand(command) {
     if (!window.isConnected || !window.writer || !window.serialPort) {
-        addLogEntry('ESP32 not connected - cannot send command', LOG_LEVEL.WARNING);
+        addLogEntry('Device not connected - cannot send command', LOG_LEVEL.WARNING);
         return false;
     }
-    
+
     try {
         if (!command || typeof command !== 'object') {
             addLogEntry('Invalid command format', LOG_LEVEL.ERROR);
             return false;
         }
-        
+
         const jsonCommand = JSON.stringify(command);
-        
+
         if (jsonCommand.length > 4096) {
             addLogEntry('Command too large - consider splitting waypoints', LOG_LEVEL.ERROR);
             return false;
         }
-        
+
         await window.writer.write(jsonCommand + '\n');
-        
+
         const actionName = command.action || command.type || 'unknown';
         addLogEntry(`Command sent: ${actionName}`, LOG_LEVEL.INFO);
-        
+
         return true;
-        
+
     } catch (error) {
         let errorMessage = 'Failed to send command';
-        
+
         if (error.name === 'NetworkError') {
-            errorMessage = 'ESP32 connection lost during command send';
-            await disconnectFromESP32();
+            errorMessage = 'Connection lost during command send';
+            await disconnectDevice();
         } else if (error.name === 'InvalidStateError') {
             errorMessage = 'Serial port not ready for writing';
         } else {
             errorMessage = `Send error: ${error.message}`;
         }
-        
+
         addLogEntry(errorMessage, LOG_LEVEL.ERROR);
         return false;
     }
@@ -587,30 +640,30 @@ function processReceivedData(data) {
         if (!data || data.trim().length === 0) {
             return;
         }
-        
+
         let jsonData;
         try {
             jsonData = JSON.parse(data);
         } catch (parseError) {
-            if (data.includes('GPS') || data.includes('Mission') || data.includes('Waypoint') || 
+            if (data.includes('GPS') || data.includes('Mission') || data.includes('Waypoint') ||
                 data.includes('Ready') || data.includes('Loading') || data.includes('Navigation')) {
-                addLogEntry(`ESP32: ${data}`, LOG_LEVEL.INFO);
+                addLogEntry(`Receiver: ${data}`, LOG_LEVEL.INFO);
             } else {
                 addLogEntry(`Received non-JSON data: ${data.substring(0, 100)}`, LOG_LEVEL.WARNING);
             }
             return;
         }
-        
+
         if (!jsonData.type) {
             addLogEntry(`Received JSON without type field: ${data}`, LOG_LEVEL.WARNING);
             return;
         }
-        
+
         // Delegate to telemetry module
         if (window.handleTelemetryData) {
             window.handleTelemetryData(jsonData);
         }
-        
+
     } catch (error) {
         addLogEntry(`Error processing data: ${error.message}`, LOG_LEVEL.ERROR);
         addLogEntry(`Raw data: ${data.substring(0, 200)}`, LOG_LEVEL.ERROR);
@@ -624,7 +677,7 @@ function initializeSystemClock() {
     if (systemTimeElement) {
         function updateClock() {
             const now = new Date();
-            const timeString = now.toLocaleTimeString('en-US', { 
+            const timeString = now.toLocaleTimeString('en-US', {
                 hour12: false,
                 hour: '2-digit',
                 minute: '2-digit',
@@ -632,7 +685,7 @@ function initializeSystemClock() {
             });
             systemTimeElement.textContent = timeString;
         }
-        
+
         updateClock();
         setInterval(updateClock, 1000);
     }
@@ -641,26 +694,26 @@ function initializeSystemClock() {
 function initializeConnectionMonitoring() {
     const connectionStatus = document.getElementById('connectionStatus');
     if (!connectionStatus) return;
-    
+
     window.addEventListener('online', () => {
         addLogEntry('Network connection restored', LOG_LEVEL.INFO);
     });
-    
+
     window.addEventListener('offline', () => {
         addLogEntry('Network connection lost', LOG_LEVEL.ERROR);
     });
-    
+
     // Monitor connection health
     window.lastTelemetryTime = 0;
     const connectionTimeoutMs = 10000;
-    
+
     setInterval(() => {
         if (window.isConnected) {
             const now = Date.now();
             if (window.lastTelemetryTime > 0 && (now - window.lastTelemetryTime) > connectionTimeoutMs) {
-                addLogEntry('No data received from ESP32 - connection may be lost', LOG_LEVEL.WARNING);
+                addLogEntry('No data received - connection may be lost', LOG_LEVEL.WARNING);
                 updateConnectionStatus('warning', 'No Data Received');
-                
+
                 if (window.connectionSettings.autoConnect) {
                     handleConnectionLoss();
                 }
@@ -675,9 +728,9 @@ function initializeStartupSequence() {
         'Loading satellite imagery...',
         'Preparing Web Serial API...',
         'Calibrating interface...',
-        'System ready - Connect ESP32 to begin'
+        'System ready - Connect to begin'
     ];
-    
+
     let messageIndex = 0;
     const startupInterval = setInterval(() => {
         if (messageIndex < startupMessages.length - 1) {
@@ -686,9 +739,9 @@ function initializeStartupSequence() {
         } else {
             addLogEntry(startupMessages[messageIndex], LOG_LEVEL.INFO);
             clearInterval(startupInterval);
-            
+
             setTimeout(() => {
-                addLogEntry('Ready for ESP32 connection via Web Serial API', LOG_LEVEL.INFO);
+                addLogEntry('Ready for connection via Web Serial API', LOG_LEVEL.INFO);
             }, 1000);
         }
     }, 800);
@@ -701,40 +754,40 @@ function initializeMissionSettings() {
     const maxSpeedValue = document.getElementById('maxSpeedValue');
     const maxAltitudeSlider = document.getElementById('maxAltitude');
     const maxAltitudeValue = document.getElementById('maxAltitudeValue');
-    
+
     if (maxSpeedSlider && maxSpeedValue) {
-        maxSpeedSlider.addEventListener('input', function() {
+        maxSpeedSlider.addEventListener('input', function () {
             const value = parseFloat(this.value);
             maxSpeedValue.textContent = value.toFixed(1);
             window.missionSettings.maxSpeed = value;
         });
-        
-        maxSpeedSlider.addEventListener('change', function() {
+
+        maxSpeedSlider.addEventListener('change', function () {
             const value = parseFloat(this.value);
             maxSpeedValue.textContent = value.toFixed(1);
             window.missionSettings.maxSpeed = value;
             addLogEntry(`Max speed set to ${value.toFixed(1)} km/h`, LOG_LEVEL.INFO);
         });
     }
-    
+
     if (maxAltitudeSlider && maxAltitudeValue) {
-        maxAltitudeSlider.addEventListener('input', function() {
+        maxAltitudeSlider.addEventListener('input', function () {
             const value = parseFloat(this.value);
             maxAltitudeValue.textContent = value.toFixed(1);
             window.missionSettings.maxAltitude = value;
         });
-        
-        maxAltitudeSlider.addEventListener('change', function() {
+
+        maxAltitudeSlider.addEventListener('change', function () {
             const value = parseFloat(this.value);
             maxAltitudeValue.textContent = value.toFixed(1);
             window.missionSettings.maxAltitude = value;
             addLogEntry(`Max altitude set to ${value.toFixed(1)} m`, LOG_LEVEL.INFO);
         });
     }
-    
+
     const missionEndRadios = document.querySelectorAll('input[name="missionEnd"]');
     missionEndRadios.forEach(radio => {
-        radio.addEventListener('change', function() {
+        radio.addEventListener('change', function () {
             window.missionSettings.returnToHome = this.value === 'returnHome';
             addLogEntry(`Mission end action: ${this.value === 'returnHome' ? 'Return to Home' : 'Land at Last Waypoint'}`, LOG_LEVEL.INFO);
         });
@@ -744,22 +797,22 @@ function initializeMissionSettings() {
 // ================== EVENT LISTENERS ==================
 
 function initializeEventListeners() {
-    const connectESP32Btn = document.getElementById('connectESP32');
-    if (connectESP32Btn) {
-        connectESP32Btn.addEventListener('click', connectManually);
+    const connectDeviceBtn = document.getElementById('connectDevice');
+    if (connectDeviceBtn) {
+        connectDeviceBtn.addEventListener('click', connectManually);
     }
-    
+
     const startMissionBtn = document.getElementById('startMission');
     if (startMissionBtn) {
-        startMissionBtn.addEventListener('click', async function() {
+        startMissionBtn.addEventListener('click', async function () {
             if (!window.waypoints || window.waypoints.length === 0) {
                 addLogEntry('Cannot start mission: No waypoints added', LOG_LEVEL.WARNING);
                 return;
             }
-            
+
             const confirmed = confirm(`Start mission with ${window.waypoints.length} waypoint${window.waypoints.length > 1 ? 's' : ''}?`);
             if (!confirmed) return;
-            
+
             const missionCommand = {
                 action: 'start_mission',
                 waypoints: window.waypoints.map(wp => ({
@@ -773,21 +826,21 @@ function initializeEventListeners() {
                 return_to_home: window.missionSettings.returnToHome,
                 total_waypoints: window.waypoints.length
             };
-            
+
             await sendCommand(missionCommand);
         });
     }
-    
+
     const returnHomeBtn = document.getElementById('returnHome');
     if (returnHomeBtn) {
-        returnHomeBtn.addEventListener('click', async function() {
+        returnHomeBtn.addEventListener('click', async function () {
             await sendCommand({ action: 'return_home' });
         });
     }
-    
+
     const emergencyStopBtn = document.getElementById('emergencyStop');
     if (emergencyStopBtn) {
-        emergencyStopBtn.addEventListener('click', async function() {
+        emergencyStopBtn.addEventListener('click', async function () {
             const confirmed = confirm('Are you sure you want to activate emergency stop?');
             if (confirmed) {
                 await sendCommand({ action: 'emergency_stop' });

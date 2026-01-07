@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Control & Telemetry System">
     <title>Drone Telemetry Control Station</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -10,34 +12,21 @@
     <link rel="stylesheet" href="assets/css/theme.css">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
+
 <body class="dark-theme">
     <div class="container">
         <header>
             <div class="header-left">
                 <h1>Drone Telemetry Control Station</h1>
                 <div class="connection-status" id="connectionStatus">
-                    <div class="status-indicator disconnected"></div>
-                    <span>Disconnected</span>
+                    <div class="status-indicator connected"></div>
+                    <span>Connected</span>
                 </div>
             </div>
-            <div class="header-center">
-                <button class="btn btn-secondary" id="connectESP32">
-                    <i class="fas fa-usb"></i> Connect ESP32
-                </button>
-                <button class="btn btn-primary" id="startMission" disabled>
-                    <i class="fas fa-play"></i> Start Mission
-                </button>
-                <button class="btn btn-warning" id="returnHome" disabled>
-                    <i class="fas fa-home"></i> Return To Home
-                </button>
-                <button class="btn btn-danger" id="emergencyStop" disabled>
-                    <i class="fas fa-exclamation-triangle"></i> Emergency Stop
-                </button>
-                <button class="btn btn-info" id="calculateFlightTime">
-                    <i class="fas fa-clock"></i> Calculate Flight Time
-                </button>
-            </div>
             <div class="header-right">
+                <button class="btn btn-sm btn-secondary" id="connectDevice">
+                    <i class="fas fa-usb"></i> Connect
+                </button>
                 <div class="system-time" id="systemTime"></div>
             </div>
         </header>
@@ -61,9 +50,6 @@
                     <div class="map-coordinates">
                         <span id="mapCoordinates">0°0'0"N 0°0'0"E</span>
                     </div>
-                    <div class="map-altitude-info">
-                        <span id="mapAltitude">0 m</span>
-                    </div>
                 </div>
             </div>
 
@@ -85,7 +71,7 @@
                             <span class="log-message">System initialized. Ready to connect.</span>
                         </div>
                         <div class="log-entry log-info">
-                            <span class="log-time">10:55:17</span>
+                            <span class="log-time">10:00:00</span>
                             <span class="log-message">Map initialized. Ready to add waypoints.</span>
                         </div>
                     </div>
@@ -103,40 +89,38 @@
                         </div>
                         <div class="status-item">
                             <span>Altitude</span>
-                            <div class="value">120.5 <small>m</small></div>
+                            <div class="value">0 <small>m</small></div>
                         </div>
                         <div class="status-item">
                             <span>Speed</span>
-                            <div class="value">44.3 <small>km/h</small></div>
+                            <div class="value">0 <small>km/h</small></div>
                         </div>
                         <div class="status-item">
                             <span>ETA</span>
-                            <div class="value eta-value">05:23</div>
+                            <div class="value eta-value">--:--</div>
                         </div>
                     </div>
-                    
+
                     <h3 class="telemetry-title">Telemetry Data</h3>
                     <div class="telemetry-grid">
                         <div class="telemetry-item">
                             <span>Latitude</span>
-                            <span>40.7128° N</span>
+                            <span>16.9919° N</span>
                         </div>
                         <div class="telemetry-item">
                             <span>Longitude</span>
-                            <span>74.0060° W</span>
+                            <span>73.2868° E</span>
                         </div>
-                        <div class="telemetry-item">
-                            <span>Heading</span>
-                            <span>135°</span>
-                        </div>
+
                         <div class="telemetry-item">
                             <span>Altitude AGL</span>
-                            <span>45m</span>
+                            <span>0m</span>
                         </div>
                     </div>
                 </div>
             </div>
-            
+
+            <!--
             <div class="waypoints-panel">
                 <div class="waypoint-section">
                     <h3>Waypoint List</h3>
@@ -145,62 +129,63 @@
                             <div class="waypoint-instructions">Click on the map to add a waypoint</div>
                             <div class="waypoints-list">
                                 <!-- Waypoints will be populated dynamically by JavaScript -->
-                            </div>
-                        </div>
-                        <div class="waypoint-actions">
-                            <button class="btn btn-add-waypoint">
-                                <i class="fas fa-plus"></i> Add Waypoint
-                            </button>
-                            <button class="btn btn-clear-waypoints">
-                                <i class="fas fa-trash"></i> Clear All
-                            </button>
-                        </div>
+    </div>
+    </div>
+    <div class="waypoint-actions">
+        <button class="btn btn-add-waypoint">
+            <i class="fas fa-plus"></i> Add Waypoint
+        </button>
+        <button class="btn btn-clear-waypoints">
+            <i class="fas fa-trash"></i> Clear All
+        </button>
+    </div>
+    </div>
+    </div>
+
+    <div class="mission-settings-section">
+        <div class="mission-settings">
+            <h3>Mission Settings</h3>
+
+            <div class="mission-settings-grid">
+                <div class="setting-item">
+                    <label>Mission End Action:</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="missionEnd" value="returnHome" checked>
+                            Return to Home
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="missionEnd" value="landAtLast">
+                            Land at Last Waypoint
+                        </label>
                     </div>
                 </div>
-                
-                <div class="mission-settings-section">
-                    <div class="mission-settings">
-                        <h3>Mission Settings</h3>
-                        
-                        <div class="mission-settings-grid">
-                            <div class="setting-item">
-                                <label>Mission End Action:</label>
-                                <div class="radio-group">
-                                    <label class="radio-label">
-                                        <input type="radio" name="missionEnd" value="returnHome" checked>
-                                        Return to Home
-                                    </label>
-                                    <label class="radio-label">
-                                        <input type="radio" name="missionEnd" value="landAtLast">
-                                        Land at Last Waypoint
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <div class="setting-column">
-                                <div class="setting-item">
-                                    <label for="maxSpeed">Max Speed (km/h):</label>
-                                    <div class="slider-container">
-                                        <input type="range" id="maxSpeed" min="5" max="20" value="12" step="0.1">
-                                        <span class="slider-value" id="maxSpeedValue">12.0</span>
-                                    </div>
-                                </div>
-                                
-                                <div class="setting-item">
-                                    <label for="maxAltitude">Max Altitude (m):</label>
-                                    <div class="slider-container">
-                                        <input type="range" id="maxAltitude" min="1" max="5" value="3" step="0.1">
-                                        <span class="slider-value" id="maxAltitudeValue">3.0</span>
-                                    </div>
-                                </div>
-                            </div>
+
+                <div class="setting-column">
+                    <div class="setting-item">
+                        <label for="maxSpeed">Max Speed (km/h):</label>
+                        <div class="slider-container">
+                            <input type="range" id="maxSpeed" min="5" max="20" value="12" step="0.1">
+                            <span class="slider-value" id="maxSpeedValue">12.0</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <label for="maxAltitude">Max Altitude (m):</label>
+                        <div class="slider-container">
+                            <input type="range" id="maxAltitude" min="1" max="5" value="3" step="0.1">
+                            <span class="slider-value" id="maxAltitudeValue">3.0</span>
                         </div>
                     </div>
                 </div>
             </div>
-        </main>
+        </div>
     </div>
-    
+    </div>
+    -->
+    </main>
+    </div>
+
     <!-- Flight Time Analysis Modal -->
     <div id="flightTimeModal" class="modal">
         <div class="modal-content">
@@ -221,4 +206,5 @@
     <script src="assets/js/telemetry.js"></script>
     <script src="assets/js/ui.js"></script>
 </body>
+
 </html>

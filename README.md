@@ -4,7 +4,10 @@ A professional-grade GPS drone telemetry and mission control system featuring re
 
 ![System Architecture](https://img.shields.io/badge/Architecture-ESP32%20%2B%20Web%20Serial-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
-![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
+![Status](https://img.shields.io/badge/Status-Development%20Phase-yellow)
+
+> [!CAUTION]
+> **DEVELOPMENT PHASE**: This system is currently under active development. Features are limited, and stability is not guaranteed. Do not use for critical missions.
 
 ## 🚀 Features
 
